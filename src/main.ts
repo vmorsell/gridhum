@@ -8,6 +8,7 @@ const frequencyCanvas = new FrequencyCanvas(canvas);
 async function poll() {
   const point = await fetchFrequency();
   if (point) {
+    console.debug(point.frequency.toFixed(3), "Hz");
     frequencyCanvas.addPoint(point);
   }
 }
