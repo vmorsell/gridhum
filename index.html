@@ -8,6 +8,12 @@
   <body>
     <canvas id="canvas"></canvas>
     <div id="prompt">Click anywhere to start</div>
+    <div id="debug">
+      <button id="freq-down">−</button>
+      <input type="range" id="freq-offset" min="-0.6" max="0.6" step="0.01" value="0" />
+      <button id="freq-up">+</button>
+      <span id="freq-offset-value">+0.00 Hz</span>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
