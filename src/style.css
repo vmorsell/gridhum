@@ -67,3 +67,13 @@ canvas {
 #debug button:hover {
   background: rgba(255, 255, 255, 0.1);
 }
+
+#freq {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  font-family: system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 500;
+  pointer-events: none;
+}

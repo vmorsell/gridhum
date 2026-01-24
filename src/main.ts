@@ -12,11 +12,18 @@ const debug = new URLSearchParams(window.location.search).has("debug");
 const debugPanel = document.getElementById("debug") as HTMLDivElement;
 const freqOffsetSlider = document.getElementById("freq-offset") as HTMLInputElement;
 const freqOffsetValue = document.getElementById("freq-offset-value") as HTMLSpanElement;
+const freqDisplay = document.getElementById("freq") as HTMLDivElement;
 
 if (!debug) debugPanel.style.display = "none";
 
 let latestPoint: FreqPoint | null = null;
 let freqOffset = 0;
+
+function getFreqColor(freq: number): string {
+  if (freq >= 49.9 && freq <= 50.1) return "#22c55e";
+  if (freq >= 49.5 && freq <= 50.5) return "#eab308";
+  return "#ef4444";
+}
 
 function updateOffset(value: number) {
   freqOffset = Math.round(Math.max(-0.6, Math.min(0.6, value)) * 100) / 100;
@@ -35,6 +42,9 @@ async function poll() {
     const adjustedPoint = { ...point, frequency: point.frequency + freqOffset };
     frequencyCanvas.addPoint(adjustedPoint);
     latestPoint = adjustedPoint;
+
+    freqDisplay.textContent = `${adjustedPoint.frequency.toFixed(3)} Hz`;
+    freqDisplay.style.color = getFreqColor(adjustedPoint.frequency);
 
     audioEngine.update(adjustedPoint);
   }
