@@ -5,7 +5,7 @@ const FREQ_MIN = 49.4;
 const FREQ_MAX = 50.6;
 
 const BG = "#0a0a0a";
-const REF_LINE_COLOR = "rgba(255, 255, 255, 0.1)";
+const REF_LINE_COLOR = "rgba(255, 255, 255, 0.15)";
 const GREEN = "#22c55e";
 const YELLOW = "#eab308";
 const RED = "#ef4444";
