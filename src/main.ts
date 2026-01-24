@@ -3,6 +3,9 @@ import { fetchFrequency } from "./data";
 import type { FreqPoint } from "./data";
 import { FrequencyCanvas } from "./canvas";
 import { createAudioEngine } from "./audio";
+import { inject } from "@vercel/analytics";
+
+if (import.meta.env.PROD) inject();
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const frequencyCanvas = new FrequencyCanvas(canvas);
