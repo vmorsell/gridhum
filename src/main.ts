@@ -13,8 +13,24 @@ const debugPanel = document.getElementById("debug") as HTMLDivElement;
 const freqOffsetSlider = document.getElementById("freq-offset") as HTMLInputElement;
 const freqOffsetValue = document.getElementById("freq-offset-value") as HTMLSpanElement;
 const freqDisplay = document.getElementById("freq") as HTMLDivElement;
+const muteBtn = document.getElementById("mute") as HTMLButtonElement;
 
 if (!debug) debugPanel.style.display = "none";
+
+let audioEnabled = false;
+
+function updateMuteButton() {
+  muteBtn.className = audioEnabled && !audioEngine.isMuted() ? "on" : "off";
+}
+
+muteBtn.addEventListener("click", async () => {
+  if (!audioEngine.isStarted()) {
+    await startAudio();
+  } else {
+    audioEngine.setMuted(!audioEngine.isMuted());
+  }
+  updateMuteButton();
+});
 
 let latestPoint: FreqPoint | null = null;
 let freqOffset = 0;
@@ -62,7 +78,9 @@ async function startAudio() {
   if (audioEngine.isStarted()) return;
 
   await audioEngine.start();
+  audioEnabled = true;
   prompt?.classList.add("hidden");
+  updateMuteButton();
 
   // Update with latest data if available
   if (latestPoint) {
@@ -85,3 +103,6 @@ setInterval(poll, 1000);
 
 // Start render loop
 animate();
+
+// Initial mute button state
+updateMuteButton();

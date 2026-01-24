@@ -6,6 +6,8 @@ export interface AudioEngine {
   start(): Promise<void>;
   update(point: FreqPoint): void;
   isStarted(): boolean;
+  isMuted(): boolean;
+  setMuted(muted: boolean): void;
 }
 
 export function createAudioEngine(): AudioEngine {
@@ -27,5 +29,11 @@ export function createAudioEngine(): AudioEngine {
     },
 
     isStarted: () => started,
+
+    isMuted: () => Tone.getDestination().mute,
+
+    setMuted(muted: boolean) {
+      Tone.getDestination().mute = muted;
+    },
   };
 }

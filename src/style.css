@@ -68,12 +68,51 @@ canvas {
   background: rgba(255, 255, 255, 0.1);
 }
 
-#freq {
+#status {
   position: fixed;
   top: 1rem;
   right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+#freq {
   font-family: system-ui, sans-serif;
   font-size: 1.5rem;
   font-weight: 500;
   pointer-events: none;
+}
+
+#mute {
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+#mute:hover {
+  opacity: 1;
+}
+
+#mute::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-color: white;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+}
+
+#mute.on::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='M11 5L6 9H2v6h4l5 4V5z'/%3E%3Cpath d='M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07'/%3E%3C/svg%3E");
+}
+
+#mute.off::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='M11 5L6 9H2v6h4l5 4V5z'/%3E%3Cline x1='23' y1='9' x2='17' y2='15'/%3E%3Cline x1='17' y1='9' x2='23' y2='15'/%3E%3C/svg%3E");
 }
