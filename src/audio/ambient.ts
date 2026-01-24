@@ -48,6 +48,7 @@ export class Ambient {
   private master: Tone.Gain;
 
   private started = false;
+  private firstUpdate = true;
   private activeChord: "A" | "B" = "A";
   private targetDegree: number | null = null;
   private activeDegree: number | null = null;
@@ -145,7 +146,12 @@ export class Ambient {
     );
 
     const voiceFreq = octave(BASE, VOICE_OCTAVE) * Math.pow(2, shift);
-    this.voice.frequency.rampTo(voiceFreq, VOICE_SLIDE_SECONDS);
+    if (this.firstUpdate) {
+      this.voice.frequency.value = voiceFreq;
+      this.firstUpdate = false;
+    } else {
+      this.voice.frequency.rampTo(voiceFreq, VOICE_SLIDE_SECONDS);
+    }
 
     const semitones = freqToSemitones(voiceFreq, BASE);
     const degree = findClosestScaleDegree(semitones);
