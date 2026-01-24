@@ -73,7 +73,6 @@ export class FrequencyCanvas {
     this.ctx.lineTo(w, refY);
     this.ctx.stroke();
 
-    // Draw frequency line
     const now = Date.now();
     const startTime = now - HISTORY_SECONDS * 1000;
 
@@ -81,24 +80,48 @@ export class FrequencyCanvas {
     this.ctx.lineCap = "round";
     this.ctx.lineJoin = "round";
 
-    // Draw as stepped line with color segments
-    for (let i = 0; i < this.history.length; i++) {
-      const point = this.history[i];
-      const nextPoint = this.history[i + 1];
+    const points = this.history.map((p) => ({
+      x: ((p.timestamp - startTime) / (HISTORY_SECONDS * 1000)) * w,
+      y: this.freqToY(p.frequency),
+      freq: p.frequency,
+    }));
 
-      const x = ((point.timestamp - startTime) / (HISTORY_SECONDS * 1000)) * w;
-      const y = this.freqToY(point.frequency);
+    if (points.length === 0) return;
 
-      const endX = nextPoint
-        ? ((nextPoint.timestamp - startTime) / (HISTORY_SECONDS * 1000)) * w
-        : ((now - startTime) / (HISTORY_SECONDS * 1000)) * w;
+    const nowX = ((now - startTime) / (HISTORY_SECONDS * 1000)) * w;
 
-      this.ctx.strokeStyle = this.getColor(point.frequency);
+    if (points.length === 1) {
+      this.ctx.strokeStyle = this.getColor(points[0].freq);
       this.ctx.beginPath();
-      this.ctx.moveTo(x, y);
-      this.ctx.lineTo(endX, y); // Horizontal step
-      if (nextPoint) {
-        this.ctx.lineTo(endX, this.freqToY(nextPoint.frequency)); // Vertical step
+      this.ctx.moveTo(points[0].x, points[0].y);
+      this.ctx.lineTo(nowX, points[0].y);
+      this.ctx.stroke();
+      return;
+    }
+
+    // Add virtual point at current time to smooth the end
+    const last = points[points.length - 1];
+    points.push({ x: nowX, y: last.y, freq: last.freq });
+
+    // Draw smooth curve using quadratic beziers through midpoints
+    for (let i = 0; i < points.length - 1; i++) {
+      const curr = points[i];
+      const next = points[i + 1];
+      const midX = (curr.x + next.x) / 2;
+      const midY = (curr.y + next.y) / 2;
+
+      this.ctx.strokeStyle = this.getColor(curr.freq);
+      this.ctx.beginPath();
+
+      if (i === 0) {
+        this.ctx.moveTo(curr.x, curr.y);
+        this.ctx.quadraticCurveTo(curr.x, curr.y, midX, midY);
+      } else {
+        const prev = points[i - 1];
+        const prevMidX = (prev.x + curr.x) / 2;
+        const prevMidY = (prev.y + curr.y) / 2;
+        this.ctx.moveTo(prevMidX, prevMidY);
+        this.ctx.quadraticCurveTo(curr.x, curr.y, midX, midY);
       }
       this.ctx.stroke();
     }
