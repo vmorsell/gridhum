@@ -12,7 +12,7 @@ import { NORMAL_DEVIATION, WARNING_DEVIATION } from "../config";
 const BASE = NOTE.D_SHARP;
 
 const VOICE_OCTAVE = 3;
-const VOICE_GAIN = 0.15;
+const VOICE_GAIN = 0.25;
 const VOICE_SLIDE_SECONDS = 1;
 
 // Octave shift: 1 octave in normal band, 1 more in warning band
@@ -78,7 +78,7 @@ export class Ambient {
   private chordTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    this.master = new Tone.Gain(0.1).toDestination();
+    this.master = new Tone.Gain(0.25).toDestination();
 
     this.reverb = new Tone.Reverb({
       decay: 15,
