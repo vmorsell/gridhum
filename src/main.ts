@@ -1,10 +1,10 @@
 import "./style.css";
-import { fetchFrequency } from "./data";
 import type { FreqPoint } from "./data";
 import { FrequencyCanvas } from "./canvas";
 import { createAudioEngine } from "./audio";
 import { inject } from "@vercel/analytics";
-import { FETCH_INTERVAL_SECONDS, NORMAL_DEVIATION, WARNING_DEVIATION } from "./config";
+import { NORMAL_DEVIATION, WARNING_DEVIATION } from "./config";
+import PollWorker from "./poll-worker?worker";
 
 if (import.meta.env.PROD) inject();
 
@@ -73,18 +73,19 @@ document
   .getElementById("freq-up")!
   .addEventListener("click", () => updateOffset(freqOffset + 0.01));
 
-async function poll() {
-  const points = await fetchFrequency();
-  if (points && points.length > 0) {
-    frequencyCanvas.addPoints(points);
+// Use Web Worker for polling
+const pollWorker = new PollWorker();
+pollWorker.onmessage = (e) => {
+  if (e.data.type === "data") {
+    frequencyCanvas.addPoints(e.data.points);
   }
-}
+};
 
 let lastDisplayedPoint: FreqPoint | null = null;
 
-function animate() {
+// Audio update loop
+function updateAudio() {
   frequencyCanvas.update(freqOffset);
-  frequencyCanvas.render();
 
   const current = frequencyCanvas.getCurrentPoint();
   const hadData = hasData;
@@ -103,8 +104,12 @@ function animate() {
   } else if (!current) {
     freqDisplay.textContent = "";
   }
+}
 
-  requestAnimationFrame(animate);
+// Render loop
+function render() {
+  frequencyCanvas.render();
+  requestAnimationFrame(render);
 }
 
 // Start audio on first user interaction
@@ -134,12 +139,6 @@ document.addEventListener("click", startAudio);
 document.addEventListener("keydown", startAudio);
 document.addEventListener("touchstart", startAudio);
 
-// Poll API every second
-poll();
-setInterval(poll, FETCH_INTERVAL_SECONDS * 1000);
-
-// Start render loop
-animate();
-
-// Initial mute button state
+setInterval(updateAudio, 100);
+render();
 updateMuteButton();
