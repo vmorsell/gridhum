@@ -1,7 +1,7 @@
 import type { FreqPoint } from "./data";
 import { DELAY_SECONDS } from "./config";
 
-const HISTORY_SECONDS = 120;
+const HISTORY_SECONDS = 600;
 const FREQ_MIN = 49.4;
 const FREQ_MAX = 50.6;
 
