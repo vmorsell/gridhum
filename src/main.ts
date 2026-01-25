@@ -75,17 +75,14 @@ document
 async function poll() {
   const points = await fetchFrequency();
   if (points && points.length > 0) {
-    const adjustedPoints = points.map((p) => ({
-      ...p,
-      frequency: p.frequency + freqOffset,
-    }));
-    frequencyCanvas.addPoints(adjustedPoints);
+    frequencyCanvas.addPoints(points);
   }
 }
 
 let lastDisplayedPoint: FreqPoint | null = null;
 
 function animate() {
+  frequencyCanvas.update(freqOffset);
   frequencyCanvas.render();
 
   const current = frequencyCanvas.getCurrentPoint();

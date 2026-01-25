@@ -17,7 +17,8 @@ const WARNING_BAND = [49.5, 50.5];
 export class FrequencyCanvas {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private history: FreqPoint[] = [];
+  private pending: FreqPoint[] = [];
+  private displayed: FreqPoint[] = [];
   private dpr: number;
   private startedAt: number | null = null;
 
@@ -49,16 +50,9 @@ export class FrequencyCanvas {
   }
 
   getCurrentPoint(): FreqPoint | null {
-    if (!this.startedAt) return null;
-
-    const now = Date.now() - DELAY_SECONDS * 1000;
-    const firstVisible = this.startedAt - DELAY_SECONDS * 1000;
-
-    const visible = this.history.filter(
-      (p) => p.timestamp >= firstVisible && p.timestamp <= now,
-    );
-
-    return visible.length > 0 ? visible[visible.length - 1] : null;
+    return this.displayed.length > 0
+      ? this.displayed[this.displayed.length - 1]
+      : null;
   }
 
   addPoints(pts: FreqPoint[]) {
@@ -66,14 +60,34 @@ export class FrequencyCanvas {
       this.startedAt = Date.now();
     }
 
-    const existingTimestamps = new Set(this.history.map((p) => p.timestamp));
-    const newPoints = pts.filter((p) => !existingTimestamps.has(p.timestamp));
-    this.history.push(...newPoints);
-    this.history.sort((a, b) => a.timestamp - b.timestamp);
+    const existing = new Set([
+      ...this.pending.map((p) => p.timestamp),
+      ...this.displayed.map((p) => p.timestamp),
+    ]);
+    const newPoints = pts.filter((p) => !existing.has(p.timestamp));
+    this.pending.push(...newPoints);
+    this.pending.sort((a, b) => a.timestamp - b.timestamp);
+  }
 
-    // Keep only data within display window
-    const cutoff = Date.now() - (HISTORY_SECONDS + DELAY_SECONDS) * 1000;
-    this.history = this.history.filter((p) => p.timestamp > cutoff);
+  update(freqOffset: number) {
+    const now = Date.now() - DELAY_SECONDS * 1000;
+
+    // Move newly visible points from pending to displayed with baked offset
+    const newlyVisible = this.pending.filter((p) => p.timestamp <= now);
+    for (const p of newlyVisible) {
+      this.displayed.push({
+        timestamp: p.timestamp,
+        frequency: p.frequency + freqOffset,
+      });
+    }
+    this.pending = this.pending.filter((p) => p.timestamp > now);
+
+    // Prune old displayed points
+    const firstVisible = this.startedAt
+      ? this.startedAt - DELAY_SECONDS * 1000
+      : now;
+    const cutoff = Math.max(now - HISTORY_SECONDS * 1000, firstVisible);
+    this.displayed = this.displayed.filter((p) => p.timestamp >= cutoff);
   }
 
   render() {
@@ -84,8 +98,6 @@ export class FrequencyCanvas {
     this.ctx.fillStyle = BG;
     this.ctx.fillRect(0, 0, w, h);
 
-    if (this.history.length === 0) return;
-
     // Draw 50 Hz reference line
     const refY = this.freqToY(50);
     this.ctx.strokeStyle = REF_LINE_COLOR;
@@ -95,21 +107,16 @@ export class FrequencyCanvas {
     this.ctx.lineTo(w, refY);
     this.ctx.stroke();
 
+    if (this.displayed.length === 0) return;
+
     const now = Date.now() - DELAY_SECONDS * 1000;
     const startTime = now - HISTORY_SECONDS * 1000;
-    const firstVisible = this.startedAt
-      ? this.startedAt - DELAY_SECONDS * 1000
-      : now;
 
     this.ctx.lineWidth = 2;
     this.ctx.lineCap = "round";
     this.ctx.lineJoin = "round";
 
-    const visible = this.history.filter(
-      (p) => p.timestamp >= firstVisible && p.timestamp <= now,
-    );
-
-    const points = visible.map((p) => ({
+    const points = this.displayed.map((p) => ({
       x: ((p.timestamp - startTime) / (HISTORY_SECONDS * 1000)) * w,
       y: this.freqToY(p.frequency),
       freq: p.frequency,
