@@ -13,7 +13,7 @@ const BASE = NOTE.D_SHARP;
 
 const VOICE_OCTAVE = 3;
 const VOICE_GAIN = 0.15;
-const VOICE_SLIDE_SECONDS = 2;
+const VOICE_SLIDE_SECONDS = 1;
 
 // Octave shift: 1 octave in normal band, 1 more in warning band
 function deviationToOctaves(deviation: number): number {
@@ -47,8 +47,11 @@ const BASS_GAIN = 0.2;
 
 const FILTER_NORMAL = 300;
 const FILTER_DISTURBED = 3000;
-const TREMOLO_RATE_MAX = 8;
 const TREMOLO_DEPTH_MAX = 0.6;
+
+// Tremolo rate: slow when low freq, fast when high freq
+const TREMOLO_RATE_LOW = 1; // Hz at max low deviation
+const TREMOLO_RATE_HIGH = 12; // Hz at max high deviation
 
 export class Ambient {
   private bass: Tone.Oscillator;
@@ -202,8 +205,10 @@ export class Ambient {
       FILTER_NORMAL + tension * (FILTER_DISTURBED - FILTER_NORMAL);
     this.filter.frequency.rampTo(filterFreq, 1);
 
-    // Tremolo speeds up and deepens
-    this.tremolo.frequency.rampTo(tension * TREMOLO_RATE_MAX, 0.5);
+    // Tremolo: slow pulse when low, fast pulse when high
+    const tremoloRate =
+      deviation < 0 ? tension * TREMOLO_RATE_LOW : tension * TREMOLO_RATE_HIGH;
+    this.tremolo.frequency.rampTo(tremoloRate, 0.5);
     this.tremolo.depth.rampTo(tension * TREMOLO_DEPTH_MAX, 0.5);
 
     // Dissonant tension voice fades in (minor 2nd = 1 semitone above)
