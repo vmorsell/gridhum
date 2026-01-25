@@ -7,14 +7,26 @@ import {
   freqToSemitones,
   findClosestScaleDegree,
 } from "./music";
+import { NORMAL_DEVIATION, WARNING_DEVIATION } from "../config";
 
 const BASE = NOTE.D_SHARP;
 
 const VOICE_OCTAVE = 3;
 const VOICE_GAIN = 0.15;
 const VOICE_SLIDE_SECONDS = 2;
-const OCTAVES_PER_DECIHZ = 10;
-const MAX_OCTAVE_SHIFT = 6;
+
+// Octave shift: 1 octave in normal band, 1 more in warning band
+function deviationToOctaves(deviation: number): number {
+  const abs = Math.abs(deviation);
+  const sign = Math.sign(deviation);
+
+  if (abs <= NORMAL_DEVIATION) {
+    return sign * (abs / NORMAL_DEVIATION);
+  }
+  const warningRange = WARNING_DEVIATION - NORMAL_DEVIATION;
+  const warningProgress = Math.min(1, (abs - NORMAL_DEVIATION) / warningRange);
+  return sign * (1 + warningProgress);
+}
 
 const CHORD_MAP: Record<number, number[]> = {
   [DEGREE.I]: [DEGREE.I, DEGREE.V],
@@ -33,17 +45,25 @@ const CHORD_GAIN = 0.12;
 
 const BASS_GAIN = 0.2;
 
+const FILTER_NORMAL = 300;
+const FILTER_DISTURBED = 3000;
+const TREMOLO_RATE_MAX = 8;
+const TREMOLO_DEPTH_MAX = 0.6;
+
 export class Ambient {
   private bass: Tone.Oscillator;
   private voice: Tone.Oscillator;
+  private tensionVoice: Tone.Oscillator;
   private chordA: Tone.Oscillator[];
   private chordB: Tone.Oscillator[];
   private bassGain: Tone.Gain;
   private voiceGain: Tone.Gain;
+  private tensionGain: Tone.Gain;
   private chordGainA: Tone.Gain;
   private chordGainB: Tone.Gain;
   private filter: Tone.Filter;
-  private chorus: Tone.Chorus;
+  private distortion: Tone.Distortion;
+  private tremolo: Tone.Tremolo;
   private reverb: Tone.Reverb;
   private master: Tone.Gain;
 
@@ -63,23 +83,28 @@ export class Ambient {
       preDelay: 0.1,
     }).connect(this.master);
 
-    this.chorus = new Tone.Chorus({
-      frequency: 0.2,
-      delayTime: 4,
-      depth: 0.3,
-      wet: 0.4,
+    this.tremolo = new Tone.Tremolo({
+      frequency: 0,
+      depth: 0,
+      spread: 0,
     })
       .connect(this.reverb)
       .start();
 
+    this.distortion = new Tone.Distortion({
+      distortion: 0,
+      wet: 0,
+    }).connect(this.tremolo);
+
     this.filter = new Tone.Filter({
-      frequency: 400,
+      frequency: FILTER_NORMAL,
       type: "lowpass",
       rolloff: -12,
-    }).connect(this.chorus);
+    }).connect(this.distortion);
 
     this.bassGain = new Tone.Gain(BASS_GAIN).connect(this.filter);
     this.voiceGain = new Tone.Gain(VOICE_GAIN).connect(this.filter);
+    this.tensionGain = new Tone.Gain(0).connect(this.filter);
     this.chordGainA = new Tone.Gain(CHORD_GAIN).connect(this.filter);
     this.chordGainB = new Tone.Gain(0).connect(this.filter);
 
@@ -92,6 +117,12 @@ export class Ambient {
       frequency: octave(BASE, VOICE_OCTAVE),
       type: "triangle",
     }).connect(this.voiceGain);
+
+    // Detuned tension voice - minor 2nd above main voice
+    this.tensionVoice = new Tone.Oscillator({
+      frequency: octave(BASE, VOICE_OCTAVE),
+      type: "sawtooth",
+    }).connect(this.tensionGain);
 
     this.chordA = this.createChordBank(this.chordGainA);
     this.chordB = this.createChordBank(this.chordGainB);
@@ -111,6 +142,7 @@ export class Ambient {
     if (this.started) return;
     this.bass.start();
     this.voice.start();
+    this.tensionVoice.start();
     this.chordA.forEach((o) => o.start());
     this.chordB.forEach((o) => o.start());
     this.started = true;
@@ -119,7 +151,13 @@ export class Ambient {
   stop() {
     if (!this.started) return;
 
-    [this.bass, this.voice, ...this.chordA, ...this.chordB].forEach((o) => {
+    [
+      this.bass,
+      this.voice,
+      this.tensionVoice,
+      ...this.chordA,
+      ...this.chordB,
+    ].forEach((o) => {
       o.stop();
       o.dispose();
     });
@@ -127,10 +165,12 @@ export class Ambient {
     [
       this.bassGain,
       this.voiceGain,
+      this.tensionGain,
       this.chordGainA,
       this.chordGainB,
       this.filter,
-      this.chorus,
+      this.distortion,
+      this.tremolo,
       this.reverb,
       this.master,
     ].forEach((n) => n.dispose());
@@ -140,10 +180,7 @@ export class Ambient {
 
   update(gridFreq: number) {
     const deviation = gridFreq - 50;
-    const shift = Math.max(
-      -MAX_OCTAVE_SHIFT,
-      Math.min(MAX_OCTAVE_SHIFT, deviation * OCTAVES_PER_DECIHZ),
-    );
+    const shift = deviationToOctaves(deviation);
 
     const voiceFreq = octave(BASE, VOICE_OCTAVE) * Math.pow(2, shift);
     if (this.firstUpdate) {
@@ -152,6 +189,31 @@ export class Ambient {
     } else {
       this.voice.frequency.rampTo(voiceFreq, VOICE_SLIDE_SECONDS);
     }
+
+    // Tension: 0 = normal, 1 = edge of danger zone
+    const warningRange = WARNING_DEVIATION - NORMAL_DEVIATION;
+    const tension = Math.min(
+      1,
+      Math.max(0, Math.abs(deviation) - NORMAL_DEVIATION) / warningRange,
+    );
+
+    // Filter opens up
+    const filterFreq =
+      FILTER_NORMAL + tension * (FILTER_DISTURBED - FILTER_NORMAL);
+    this.filter.frequency.rampTo(filterFreq, 1);
+
+    // Tremolo speeds up and deepens
+    this.tremolo.frequency.rampTo(tension * TREMOLO_RATE_MAX, 0.5);
+    this.tremolo.depth.rampTo(tension * TREMOLO_DEPTH_MAX, 0.5);
+
+    // Dissonant tension voice fades in (minor 2nd = 1 semitone above)
+    const tensionFreq = voiceFreq * Math.pow(2, 1 / 12);
+    this.tensionVoice.frequency.rampTo(tensionFreq, VOICE_SLIDE_SECONDS);
+    this.tensionGain.gain.rampTo(tension * 0.1, 1);
+
+    // Distortion kicks in outside normal band
+    this.distortion.distortion = tension * 0.4;
+    this.distortion.wet.rampTo(tension * 0.5, 0.5);
 
     const semitones = freqToSemitones(voiceFreq, BASE);
     const degree = findClosestScaleDegree(semitones);

@@ -1,5 +1,5 @@
 import type { FreqPoint } from "./data";
-import { DELAY_SECONDS } from "./config";
+import { DELAY_SECONDS, NORMAL_DEVIATION, WARNING_DEVIATION } from "./config";
 
 const HISTORY_SECONDS = 600;
 const FREQ_MIN = 49.4;
@@ -10,9 +10,6 @@ const REF_LINE_COLOR = "rgba(255, 255, 255, 0.15)";
 const GREEN = "#22c55e";
 const YELLOW = "#eab308";
 const RED = "#ef4444";
-
-const NORMAL_BAND = [49.9, 50.1];
-const WARNING_BAND = [49.5, 50.5];
 
 export class FrequencyCanvas {
   private canvas: HTMLCanvasElement;
@@ -38,8 +35,9 @@ export class FrequencyCanvas {
   }
 
   private getColor(freq: number): string {
-    if (freq >= NORMAL_BAND[0] && freq <= NORMAL_BAND[1]) return GREEN;
-    if (freq >= WARNING_BAND[0] && freq <= WARNING_BAND[1]) return YELLOW;
+    const deviation = Math.abs(freq - 50);
+    if (deviation <= NORMAL_DEVIATION) return GREEN;
+    if (deviation <= WARNING_DEVIATION) return YELLOW;
     return RED;
   }
 

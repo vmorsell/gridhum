@@ -4,7 +4,7 @@ import type { FreqPoint } from "./data";
 import { FrequencyCanvas } from "./canvas";
 import { createAudioEngine } from "./audio";
 import { inject } from "@vercel/analytics";
-import { FETCH_INTERVAL_SECONDS } from "./config";
+import { FETCH_INTERVAL_SECONDS, NORMAL_DEVIATION, WARNING_DEVIATION } from "./config";
 
 if (import.meta.env.PROD) inject();
 
@@ -50,8 +50,9 @@ muteBtn.addEventListener("click", async () => {
 let freqOffset = 0;
 
 function getFreqColor(freq: number): string {
-  if (freq >= 49.9 && freq <= 50.1) return "#22c55e";
-  if (freq >= 49.5 && freq <= 50.5) return "#eab308";
+  const deviation = Math.abs(freq - 50);
+  if (deviation <= NORMAL_DEVIATION) return "#22c55e";
+  if (deviation <= WARNING_DEVIATION) return "#eab308";
   return "#ef4444";
 }
 
