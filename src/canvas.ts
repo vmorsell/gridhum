@@ -125,26 +125,15 @@ export class FrequencyCanvas {
       return;
     }
 
-    // Draw smooth curve using quadratic beziers through midpoints
+    // Interpolate lines
     for (let i = 0; i < points.length - 1; i++) {
       const curr = points[i];
       const next = points[i + 1];
-      const midX = (curr.x + next.x) / 2;
-      const midY = (curr.y + next.y) / 2;
 
       this.ctx.strokeStyle = this.getColor(curr.freq);
       this.ctx.beginPath();
-
-      if (i === 0) {
-        this.ctx.moveTo(curr.x, curr.y);
-        this.ctx.quadraticCurveTo(curr.x, curr.y, midX, midY);
-      } else {
-        const prev = points[i - 1];
-        const prevMidX = (prev.x + curr.x) / 2;
-        const prevMidY = (prev.y + curr.y) / 2;
-        this.ctx.moveTo(prevMidX, prevMidY);
-        this.ctx.quadraticCurveTo(curr.x, curr.y, midX, midY);
-      }
+      this.ctx.moveTo(curr.x, curr.y);
+      this.ctx.lineTo(next.x, next.y);
       this.ctx.stroke();
     }
   }
