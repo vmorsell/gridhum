@@ -4,6 +4,7 @@ import type { FreqPoint } from "./data";
 import { FrequencyCanvas } from "./canvas";
 import { createAudioEngine } from "./audio";
 import { inject } from "@vercel/analytics";
+import { FETCH_INTERVAL_SECONDS } from "./config";
 
 if (import.meta.env.PROD) inject();
 
@@ -13,29 +14,39 @@ const audioEngine = createAudioEngine();
 
 const debug = new URLSearchParams(window.location.search).has("debug");
 const debugPanel = document.getElementById("debug") as HTMLDivElement;
-const freqOffsetSlider = document.getElementById("freq-offset") as HTMLInputElement;
-const freqOffsetValue = document.getElementById("freq-offset-value") as HTMLSpanElement;
+const freqOffsetSlider = document.getElementById(
+  "freq-offset",
+) as HTMLInputElement;
+const freqOffsetValue = document.getElementById(
+  "freq-offset-value",
+) as HTMLSpanElement;
 const freqDisplay = document.getElementById("freq") as HTMLDivElement;
 const muteBtn = document.getElementById("mute") as HTMLButtonElement;
 
 if (!debug) debugPanel.style.display = "none";
 
 let audioEnabled = false;
+let userMuted = false;
+let hasData = false;
 
 function updateMuteButton() {
-  muteBtn.className = audioEnabled && !audioEngine.isMuted() ? "on" : "off";
+  muteBtn.className = audioEnabled && !userMuted && hasData ? "on" : "off";
+}
+
+function updateAudioMute() {
+  audioEngine.setMuted(userMuted || !hasData);
 }
 
 muteBtn.addEventListener("click", async () => {
   if (!audioEngine.isStarted()) {
     await startAudio();
   } else {
-    audioEngine.setMuted(!audioEngine.isMuted());
+    userMuted = !userMuted;
+    updateAudioMute();
   }
   updateMuteButton();
 });
 
-let latestPoint: FreqPoint | null = null;
 let freqOffset = 0;
 
 function getFreqColor(freq: number): string {
@@ -51,26 +62,50 @@ function updateOffset(value: number) {
   freqOffsetValue.textContent = `${sign}${freqOffset.toFixed(2)} Hz`;
 }
 
-freqOffsetSlider.addEventListener("input", () => updateOffset(parseFloat(freqOffsetSlider.value)));
-document.getElementById("freq-down")!.addEventListener("click", () => updateOffset(freqOffset - 0.01));
-document.getElementById("freq-up")!.addEventListener("click", () => updateOffset(freqOffset + 0.01));
+freqOffsetSlider.addEventListener("input", () =>
+  updateOffset(parseFloat(freqOffsetSlider.value)),
+);
+document
+  .getElementById("freq-down")!
+  .addEventListener("click", () => updateOffset(freqOffset - 0.01));
+document
+  .getElementById("freq-up")!
+  .addEventListener("click", () => updateOffset(freqOffset + 0.01));
 
 async function poll() {
-  const point = await fetchFrequency();
-  if (point) {
-    const adjustedPoint = { ...point, frequency: point.frequency + freqOffset };
-    frequencyCanvas.addPoint(adjustedPoint);
-    latestPoint = adjustedPoint;
-
-    freqDisplay.textContent = `${adjustedPoint.frequency.toFixed(3)} Hz`;
-    freqDisplay.style.color = getFreqColor(adjustedPoint.frequency);
-
-    audioEngine.update(adjustedPoint);
+  const points = await fetchFrequency();
+  if (points && points.length > 0) {
+    const adjustedPoints = points.map((p) => ({
+      ...p,
+      frequency: p.frequency + freqOffset,
+    }));
+    frequencyCanvas.addPoints(adjustedPoints);
   }
 }
 
+let lastDisplayedPoint: FreqPoint | null = null;
+
 function animate() {
   frequencyCanvas.render();
+
+  const current = frequencyCanvas.getCurrentPoint();
+  const hadData = hasData;
+  hasData = current !== null;
+
+  if (hasData !== hadData) {
+    updateAudioMute();
+    updateMuteButton();
+  }
+
+  if (current && current !== lastDisplayedPoint) {
+    freqDisplay.textContent = `${current.frequency.toFixed(3)} Hz`;
+    freqDisplay.style.color = getFreqColor(current.frequency);
+    audioEngine.update(current);
+    lastDisplayedPoint = current;
+  } else if (!current) {
+    freqDisplay.textContent = "";
+  }
+
   requestAnimationFrame(animate);
 }
 
@@ -85,9 +120,10 @@ async function startAudio() {
   prompt?.classList.add("hidden");
   updateMuteButton();
 
-  // Update with latest data if available
-  if (latestPoint) {
-    audioEngine.update(latestPoint);
+  // Update with current data if available
+  const current = frequencyCanvas.getCurrentPoint();
+  if (current) {
+    audioEngine.update(current);
   }
 
   // Remove listeners after starting
@@ -102,7 +138,7 @@ document.addEventListener("touchstart", startAudio);
 
 // Poll API every second
 poll();
-setInterval(poll, 1000);
+setInterval(poll, FETCH_INTERVAL_SECONDS * 1000);
 
 // Start render loop
 animate();

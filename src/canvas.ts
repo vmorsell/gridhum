@@ -1,4 +1,5 @@
 import type { FreqPoint } from "./data";
+import { DELAY_SECONDS } from "./config";
 
 const HISTORY_SECONDS = 120;
 const FREQ_MIN = 49.4;
@@ -18,6 +19,7 @@ export class FrequencyCanvas {
   private ctx: CanvasRenderingContext2D;
   private history: FreqPoint[] = [];
   private dpr: number;
+  private startedAt: number | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -46,11 +48,31 @@ export class FrequencyCanvas {
     return height - normalized * height;
   }
 
-  addPoint(pt: FreqPoint) {
-    this.history.push(pt);
+  getCurrentPoint(): FreqPoint | null {
+    if (!this.startedAt) return null;
 
-    // Keep only last HISTORY_SECONDS worth of data
-    const cutoff = Date.now() - HISTORY_SECONDS * 1000;
+    const now = Date.now() - DELAY_SECONDS * 1000;
+    const firstVisible = this.startedAt - DELAY_SECONDS * 1000;
+
+    const visible = this.history.filter(
+      (p) => p.timestamp >= firstVisible && p.timestamp <= now,
+    );
+
+    return visible.length > 0 ? visible[visible.length - 1] : null;
+  }
+
+  addPoints(pts: FreqPoint[]) {
+    if (this.startedAt === null) {
+      this.startedAt = Date.now();
+    }
+
+    const existingTimestamps = new Set(this.history.map((p) => p.timestamp));
+    const newPoints = pts.filter((p) => !existingTimestamps.has(p.timestamp));
+    this.history.push(...newPoints);
+    this.history.sort((a, b) => a.timestamp - b.timestamp);
+
+    // Keep only data within display window
+    const cutoff = Date.now() - (HISTORY_SECONDS + DELAY_SECONDS) * 1000;
     this.history = this.history.filter((p) => p.timestamp > cutoff);
   }
 
@@ -73,14 +95,21 @@ export class FrequencyCanvas {
     this.ctx.lineTo(w, refY);
     this.ctx.stroke();
 
-    const now = Date.now();
+    const now = Date.now() - DELAY_SECONDS * 1000;
     const startTime = now - HISTORY_SECONDS * 1000;
+    const firstVisible = this.startedAt
+      ? this.startedAt - DELAY_SECONDS * 1000
+      : now;
 
     this.ctx.lineWidth = 2;
     this.ctx.lineCap = "round";
     this.ctx.lineJoin = "round";
 
-    const points = this.history.map((p) => ({
+    const visible = this.history.filter(
+      (p) => p.timestamp >= firstVisible && p.timestamp <= now,
+    );
+
+    const points = visible.map((p) => ({
       x: ((p.timestamp - startTime) / (HISTORY_SECONDS * 1000)) * w,
       y: this.freqToY(p.frequency),
       freq: p.frequency,
@@ -88,20 +117,13 @@ export class FrequencyCanvas {
 
     if (points.length === 0) return;
 
-    const nowX = ((now - startTime) / (HISTORY_SECONDS * 1000)) * w;
-
     if (points.length === 1) {
       this.ctx.strokeStyle = this.getColor(points[0].freq);
       this.ctx.beginPath();
-      this.ctx.moveTo(points[0].x, points[0].y);
-      this.ctx.lineTo(nowX, points[0].y);
-      this.ctx.stroke();
+      this.ctx.arc(points[0].x, points[0].y, 2, 0, Math.PI * 2);
+      this.ctx.fill();
       return;
     }
-
-    // Add virtual point at current time to smooth the end
-    const last = points[points.length - 1];
-    points.push({ x: nowX, y: last.y, freq: last.freq });
 
     // Draw smooth curve using quadratic beziers through midpoints
     for (let i = 0; i < points.length - 1; i++) {
