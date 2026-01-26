@@ -78,7 +78,7 @@ export class Ambient {
   private chordTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    this.master = new Tone.Gain(0.25).toDestination();
+    this.master = new Tone.Gain(0.75).toDestination();
 
     this.reverb = new Tone.Reverb({
       decay: 15,
