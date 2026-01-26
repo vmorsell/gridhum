@@ -1,4 +1,4 @@
-# gridhz-live
+# Gridhum
 
 Sonification of the European electrical grid.
 
