@@ -45,7 +45,7 @@ const CHORD_GAIN = 0.12;
 
 const BASS_GAIN = 0.2;
 
-const FILTER_NORMAL = 300;
+const FILTER_NORMAL = 800;
 const FILTER_DISTURBED = 3000;
 const TREMOLO_DEPTH_MAX = 0.6;
 
@@ -118,7 +118,7 @@ export class Ambient {
 
     this.voice = new Tone.Oscillator({
       frequency: octave(BASE, VOICE_OCTAVE),
-      type: "triangle",
+      type: "sine",
     }).connect(this.voiceGain);
 
     // Detuned tension voice - minor 2nd above main voice
