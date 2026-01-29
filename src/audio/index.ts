@@ -6,8 +6,7 @@ export interface AudioEngine {
   start(): Promise<void>;
   update(point: FreqPoint): void;
   isStarted(): boolean;
-  isMuted(): boolean;
-  setMuted(muted: boolean): void;
+  setVolume(volume: number): void;
 }
 
 export function createAudioEngine(): AudioEngine {
@@ -30,10 +29,18 @@ export function createAudioEngine(): AudioEngine {
 
     isStarted: () => started,
 
-    isMuted: () => Tone.getDestination().mute,
-
-    setMuted(muted: boolean) {
-      Tone.getDestination().mute = muted;
+    setVolume(volume: number) {
+      // Convert 0-100 to dB using logarithmic curve for perceptual linearity
+      // Max at -6dB for headroom (reverb can add gain)
+      if (volume === 0) {
+        Tone.getDestination().volume.value = -Infinity;
+      } else {
+        // Attempt to follow a perceptual volume curve
+        // Volume 100 -> -6dB, Volume 1 -> -60dB
+        const normalized = volume / 100;
+        const db = -6 + 20 * Math.log10(normalized);
+        Tone.getDestination().volume.value = Math.max(-60, db);
+      }
     },
   };
 }

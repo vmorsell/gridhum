@@ -21,30 +21,46 @@ const freqOffsetValue = document.getElementById(
   "freq-offset-value",
 ) as HTMLSpanElement;
 const freqDisplay = document.getElementById("freq") as HTMLDivElement;
-const muteBtn = document.getElementById("mute") as HTMLButtonElement;
+const volumeSlider = document.getElementById("volume") as HTMLInputElement;
+const volumeIcon = document.getElementById("volume-icon") as HTMLButtonElement;
 
 if (!debug) debugPanel.style.display = "none";
 
-let audioEnabled = false;
-let userMuted = false;
 let hasData = false;
+let lastVolume = 70; // Remember volume before muting
 
-function updateMuteButton() {
-  muteBtn.className = audioEnabled && !userMuted && hasData ? "on" : "off";
+function updateVolumeIcon() {
+  const volume = parseFloat(volumeSlider.value);
+  volumeIcon.className = volume === 0 ? "muted" : volume <= 50 ? "low" : "high";
 }
 
-function updateAudioMute() {
-  audioEngine.setMuted(userMuted || !hasData);
+function updateVolume() {
+  const volume = hasData ? parseFloat(volumeSlider.value) : 0;
+  audioEngine.setVolume(volume);
+  updateVolumeIcon();
 }
 
-muteBtn.addEventListener("click", async () => {
+volumeSlider.addEventListener("input", async () => {
   if (!audioEngine.isStarted()) {
     await startAudio();
-  } else {
-    userMuted = !userMuted;
-    updateAudioMute();
   }
-  updateMuteButton();
+  const volume = parseFloat(volumeSlider.value);
+  if (volume > 0) lastVolume = volume;
+  updateVolume();
+});
+
+volumeIcon.addEventListener("click", async () => {
+  if (!audioEngine.isStarted()) {
+    await startAudio();
+  }
+  const currentVolume = parseFloat(volumeSlider.value);
+  if (currentVolume > 0) {
+    lastVolume = currentVolume;
+    volumeSlider.value = "0";
+  } else {
+    volumeSlider.value = lastVolume.toString();
+  }
+  updateVolume();
 });
 
 let freqOffset = 0;
@@ -92,8 +108,7 @@ function updateAudio() {
   hasData = current !== null;
 
   if (hasData !== hadData) {
-    updateAudioMute();
-    updateMuteButton();
+    updateVolume();
   }
 
   if (current && current !== lastDisplayedPoint) {
@@ -119,9 +134,8 @@ async function startAudio() {
   if (audioEngine.isStarted()) return;
 
   await audioEngine.start();
-  audioEnabled = true;
   prompt?.classList.add("hidden");
-  updateMuteButton();
+  updateVolume();
 
   // Update with current data if available
   const current = frequencyCanvas.getCurrentPoint();
@@ -141,4 +155,4 @@ document.addEventListener("touchstart", startAudio);
 
 setInterval(updateAudio, 100);
 render();
-updateMuteButton();
+updateVolumeIcon();
