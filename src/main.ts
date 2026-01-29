@@ -51,9 +51,9 @@ let freqOffset = 0;
 
 function getFreqColor(freq: number): string {
   const deviation = Math.abs(freq - 50);
-  if (deviation <= NORMAL_DEVIATION) return "#22c55e";
-  if (deviation <= WARNING_DEVIATION) return "#eab308";
-  return "#ef4444";
+  if (deviation <= NORMAL_DEVIATION) return "#00ff77";
+  if (deviation <= WARNING_DEVIATION) return "#ffaa00";
+  return "#ff3366";
 }
 
 function updateOffset(value: number) {

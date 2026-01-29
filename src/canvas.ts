@@ -5,11 +5,12 @@ const HISTORY_SECONDS = 600;
 const FREQ_MIN = 49.4;
 const FREQ_MAX = 50.6;
 
-const BG = "#0a0a0a";
-const REF_LINE_COLOR = "rgba(255, 255, 255, 0.15)";
-const GREEN = "#22c55e";
-const YELLOW = "#eab308";
-const RED = "#ef4444";
+const BG = "#050508";
+const GRID_COLOR = "rgba(255, 255, 255, 0.03)";
+const REF_LINE_COLOR = "rgba(255, 255, 255, 0.08)";
+const GREEN = "#00ff77";
+const YELLOW = "#ffaa00";
+const RED = "#ff3366";
 
 export class FrequencyCanvas {
   private canvas: HTMLCanvasElement;
@@ -96,6 +97,28 @@ export class FrequencyCanvas {
     this.ctx.fillStyle = BG;
     this.ctx.fillRect(0, 0, w, h);
 
+    // Draw subtle grid
+    this.ctx.strokeStyle = GRID_COLOR;
+    this.ctx.lineWidth = 1;
+
+    // Horizontal grid lines (every 0.1 Hz)
+    for (let freq = FREQ_MIN; freq <= FREQ_MAX; freq += 0.1) {
+      const y = this.freqToY(freq);
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, y);
+      this.ctx.lineTo(w, y);
+      this.ctx.stroke();
+    }
+
+    // Vertical grid lines (every minute)
+    const gridSpacing = (60 / HISTORY_SECONDS) * w;
+    for (let x = w; x >= 0; x -= gridSpacing) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(x, 0);
+      this.ctx.lineTo(x, h);
+      this.ctx.stroke();
+    }
+
     // Draw 50 Hz reference line
     const refY = this.freqToY(50);
     this.ctx.strokeStyle = REF_LINE_COLOR;
@@ -110,10 +133,6 @@ export class FrequencyCanvas {
     const now = Date.now() - DELAY_SECONDS * 1000;
     const startTime = now - HISTORY_SECONDS * 1000;
 
-    this.ctx.lineWidth = 2;
-    this.ctx.lineCap = "round";
-    this.ctx.lineJoin = "round";
-
     const points = this.displayed.map((p) => ({
       x: ((p.timestamp - startTime) / (HISTORY_SECONDS * 1000)) * w,
       y: this.freqToY(p.frequency),
@@ -123,19 +142,26 @@ export class FrequencyCanvas {
     if (points.length === 0) return;
 
     if (points.length === 1) {
-      this.ctx.strokeStyle = this.getColor(points[0].freq);
+      const color = this.getColor(points[0].freq);
+      this.ctx.fillStyle = color;
       this.ctx.beginPath();
       this.ctx.arc(points[0].x, points[0].y, 2, 0, Math.PI * 2);
       this.ctx.fill();
       return;
     }
 
-    // Interpolate lines
+    // Draw main line
+    this.ctx.lineCap = "round";
+    this.ctx.lineJoin = "round";
+    this.ctx.globalAlpha = 1;
+    this.ctx.lineWidth = 1.5;
+
     for (let i = 0; i < points.length - 1; i++) {
       const curr = points[i];
       const next = points[i + 1];
+      const color = this.getColor(curr.freq);
 
-      this.ctx.strokeStyle = this.getColor(curr.freq);
+      this.ctx.strokeStyle = color;
       this.ctx.beginPath();
       this.ctx.moveTo(curr.x, curr.y);
       this.ctx.lineTo(next.x, next.y);
